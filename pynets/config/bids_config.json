@@ -1,14 +1,10 @@
 {
     "dwi": {
-            "dg": "['prob', 'det', 'boot']",
+            "dg": "['prob', 'det']",
             "ml": "['10', '40']",
-            "mod": "['csd', 'csa']",
-            "s": 10000,
-            "tc": "['bin']",
-            "tt": "['local']"
+            "mod": "['csd', 'csa']"
         },
     "func": {
-            "cc": "['tcorr']",
             "ct": "['rena', 'ward', 'kmeans']",
             "hp": "['0', '0.028', '0.080']",
             "k": "['200', '400', '600']",
@@ -21,13 +17,12 @@
             "bin":  "False",
             "df":  "False",
             "dt":  "False",
-            "embed":  "None",
+            "embed":  "False",
             "max_thr":  0.80,
             "min_thr":  0.20,
             "mplx":  0,
             "mst":  "True",
             "n":  "None",
-            "names":  "True",
             "norm": "['6']",
             "ns":  "['4']",
             "p":  "['3']",

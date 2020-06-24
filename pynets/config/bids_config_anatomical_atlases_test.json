@@ -2,13 +2,9 @@
     "dwi": {
             "dg": "['prob']",
             "ml": "['0']",
-            "mod": "['csd']",
-            "s": 1000,
-            "tc": "['cmc']",
-            "tt": "['particle']"
+            "mod": "['csd']"
         },
     "func": {
-            "cc": "['allcorr']",
             "ct": "None",
             "hp": "['0']",
             "k": "None",
@@ -21,13 +17,12 @@
             "bin":  "False",
             "df":  "False",
             "dt":  "False",
-            "embed":  "None",
+            "embed":  "False",
             "max_thr":  0.80,
             "min_thr":  0.20,
             "mplx":  0,
             "mst":  "True",
             "n":  "None",
-            "names":  "True",
             "norm": "['6']",
             "ns":  "None",
             "p":  "['1']",

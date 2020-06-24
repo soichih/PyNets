@@ -102,13 +102,20 @@ def sweep_directory(derivatives_path, modality, space, func_desc, subj=None,
                 for an in anat:
                     anats.append(an.path)
 
+            # grab mask
+            mask_query = {'datatype': 'anat', 'suffix': 'mask',
+                          'extensions': ['.nii', '.nii.gz']}
+            for attr, key in zip(anat_attributes, anat_keys):
+                if attr:
+                    mask_query[key] = attr
+
+            mask = layout.get(**mask_query)
+            mask = [i for i in mask if 'MNI' not in i.filename and 'space' not in i.filename]
+
             if modality == 'dwi':
                 dwi = layout.get(**merge_dicts(mod_query, {'extensions': ['.nii', '.nii.gz'], 'suffix': ['dwi']}))
                 bval = layout.get(**merge_dicts(mod_query, {'extensions': 'bval'}))
                 bvec = layout.get(**merge_dicts(mod_query, {'extensions': 'bvec'}))
-                mask = layout.get(**merge_dicts(mod_query, {'extensions': ['.nii', '.nii.gz'],
-                                                            'suffix': 'mask',
-                                                            'desc': 'brain', 'space': space}))
                 if dwi and bval and bvec:
                     if not mask:
                         for (dw, bva, bve) in zip(dwi, bval, bvec):
@@ -131,9 +138,7 @@ def sweep_directory(derivatives_path, modality, space, func_desc, subj=None,
                 func = [i for i in func if func_desc in i.filename]
                 conf = layout.get(**merge_dicts(mod_query, {'extensions': ['.tsv', '.tsv.gz']}))
                 conf = [i for i in conf if 'confounds_regressors' in i.filename]
-                mask = layout.get(**merge_dicts(mod_query, {'extensions': ['.nii', '.nii.gz'],
-                                                            'suffix': 'mask',
-                                                            'desc': 'brain', 'space': space}))
+
                 if func:
                     if not conf and not mask:
                         for fun in func:
@@ -164,14 +169,14 @@ def sweep_directory(derivatives_path, modality, space, func_desc, subj=None,
 
     if modality == 'dwi':
         if not len(dwis) or not len(bvals) or not len(bvecs):
-            print("No dMRI files found in BIDs spec. Skipping...")
+            print("No dMRI files found in BIDs spec. Skipping...\n")
             return None, None, None, None, None, None, None, subjs, seshs
         else:
             return None, None, dwis, bvals, bvecs, anats, masks, subjs, seshs
 
     elif modality == 'func':
         if not len(funcs):
-            print("No fMRI files found in BIDs spec. Skipping...")
+            print("No fMRI files found in BIDs spec. Skipping...\n")
             return None, None, None, None, None, None, None, subjs, seshs
         else:
             return funcs, confs, None, None, None, anats, masks, subjs, seshs
@@ -194,7 +199,7 @@ def get_bids_parser():
                         help="""The directory to store pynets derivatives locally.""")
     parser.add_argument("analysis_level",
                         choices=['participant', 'group'],
-                        help='Possible choices: participant, group.')
+                        help='Whether to instantiate an individual or group workflow')
     parser.add_argument("modality",
                         nargs='+',
                         choices=['dwi', 'func'],
@@ -202,8 +207,8 @@ def get_bids_parser():
     parser.add_argument("--participant_label",
                         help="""The label(s) of the participant(s) that should be analyzed. The label corresponds to 
                             sub-<participant_label> from the BIDS spec (so it does not include "sub-"). If this 
-                            parameter is not provided all subjects should be analyzed. Multiple participants can be 
-                            specified with a space separated list.""",
+                            parameter is not provided all subjects found in `bids_dir` will be analyzed. 
+                            Multiple participants can be specified with a space separated list.""",
                         nargs="+",
                         default=None)
     parser.add_argument("--session_label",
@@ -236,11 +241,11 @@ def get_bids_parser():
                              'clustering. If specifying a list of paths to multiple cluster masks, separate '
                              'them by space.\n')
     parser.add_argument('-roi',
-                        metavar='Path to binarized Region-of-Interest (ROI) Nifti1Image',
+                        metavar='Path to binarized Region-of-Interest (ROI) Nifti1Image in template MNI space',
                         default=None,
                         nargs='+',
-                        help='Optionally specify a binarized ROI mask and retain only those nodes '
-                             'of a parcellation contained within that mask for connectome estimation.\n')
+                        help='Optionally specify a binarized ROI mask in template MNI space and retain only those '
+                             'nodes of a parcellation contained within that mask for connectome estimation.\n')
     parser.add_argument('-ref',
                         metavar='Atlas reference file path',
                         default=None,
@@ -250,8 +255,8 @@ def get_bids_parser():
                         metavar='Path to binarized Nifti1Image to constrain tractography',
                         default=None,
                         nargs='+',
-                        help='Optionally specify a binarized ROI mask in MNI-space to constrain tractography in the '
-                             'case of dmri connectome estimation.\n')
+                        help='Optionally specify a binarized ROI mask in template MNI-space to constrain'
+                             'tractography in the case of dmri connectome estimation.\n')
 
     # Debug/Runtime settings
     parser.add_argument('-config',
@@ -276,6 +281,10 @@ def get_bids_parser():
                         default=False,
                         action='store_true',
                         help='Verbose print for debugging.\n')
+    parser.add_argument('-clean',
+                        default=False,
+                        action='store_true',
+                        help='Clean up temporary runtime directory after workflow termination.\n')
     parser.add_argument('-work',
                         metavar='Working directory',
                         default='/tmp/work',
@@ -317,6 +326,7 @@ def main():
     modality = bids_args.modality
     bids_config = bids_args.config
     analysis_level = bids_args.analysis_level
+    clean = bids_args.clean
 
     if analysis_level == 'group' and participant_label is not None:
         raise ValueError('Error: You have indicated a group analysis level run, but specified a participant label!')
@@ -344,12 +354,12 @@ def main():
         try:
             struct_models = hardcoded_params['available_models']['struct_models']
         except KeyError:
-            print('ERROR: available structural models not successfully extracted from s.yaml')
+            print('ERROR: available structural models not successfully extracted from runconfig.yaml')
             sys.exit()
-    stream.close()
 
-    space = 'MNI152NLin2009cAsym'
-    func_desc = 'smoothAROMAnonaggr'
+        space = hardcoded_params['bids_defaults']['space'][0]
+        func_desc = hardcoded_params['bids_defaults']['desc'][0]
+    stream.close()
 
     # S3
     # Primary inputs
@@ -583,6 +593,7 @@ def main():
     args_dict_all['plug'] = bids_args.plug
     args_dict_all['pm'] = bids_args.pm
     args_dict_all['v'] = bids_args.v
+    args_dict_all['clean'] = bids_args.clean
     if funcs is not None:
         args_dict_all['func'] = sorted(funcs)
     else:
@@ -631,12 +642,26 @@ def main():
         p = Process(target=build_workflow, args=(args, retval))
         p.start()
         p.join()
+        if p.is_alive():
+            p.terminate()
 
-        if p.exitcode != 0:
-            sys.exit(p.exitcode)
+        retcode = p.exitcode or retval.get('return_code', 0)
+
+        pynets_wf = retval.get('workflow', None)
+        work_dir = retval.get('work_dir')
+        plugin_settings = retval.get('plugin_settings', None)
+        plugin_settings = retval.get('plugin_settings', None)
+        execution_dict = retval.get('execution_dict', None)
+        run_uuid = retval.get('run_uuid', None)
+
+        retcode = retcode or int(pynets_wf is None)
+        if retcode != 0:
+            sys.exit(retcode)
 
         # Clean up master process before running workflow, which may create forks
         gc.collect()
+
+    mgr.shutdown()
 
     if bids_args.push_location:
         print(f"Pushing to s3 at {bids_args.push_location}.")
@@ -651,6 +676,9 @@ def main():
                 session=id.split('_')[1],
                 creds=creds,
             )
+
+    sys.exit(0)
+
     return
 
 

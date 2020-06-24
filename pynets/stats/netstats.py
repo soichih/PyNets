@@ -30,6 +30,7 @@ def average_shortest_path_length_for_all(G):
     -------
     average_shortest_path_length : float
         The length of the average shortest path for G.
+
     """
     import math
     connected_component_subgraphs = [G.subgraph(c) for c in nx.connected_components(G)]
@@ -105,11 +106,9 @@ def global_efficiency(G, weight='weight'):
     to make a completely connected graph. Since that knowlege may not exist,
     the scaling factor is not included. If that knowlege exists, construct the
     corresponding weighted graph and calculate its global_efficiency to scale
-    the weighted graph.
-
-    Distance between nodes is calculated as the sum of weights. If the graph is
-    defined such that a higher weight represents a stronger connection,
-    distance should be represented by 1/weight. In this case, use the invert_
+    the weighted graph. Distance between nodes is calculated as the sum of weights.
+    If the graph is defined such that a higher weight represents a stronger connection,
+    distance should be represented by 1/weight. In this case, use the invert
     weights function to generate a graph where the weights are set to 1/weight
     and then calculate efficiency
 
@@ -232,17 +231,18 @@ def average_local_efficiency(G, weight='weight'):
 
 
 @timeout(720)
-def smallworldness(G, niter=10, nrand=100):
-    """Returns the small-world coefficient (omega) of a graph
+def smallworldness(G, niter=10, nrand=100, approach='clustering', reference='random'):
+    """
+    Returns the small-world coefficient of a graph
 
     The small-world coefficient of a G is:
 
     omega = Lr/L - C/Cl
 
-    where C and L are respectively the average clustering coefficient and
-    average shortest path length of G. Lr is the average shortest path length
-    of an equivalent random graph and Cl is the average clustering coefficient
-    of an equivalent lattice graph.
+    where C and L are respectively the average clustering coefficient/transitivity
+    and average shortest path length of G. Lr is the average shortest path length
+    of an equivalent random graph and Cl is the average clustering
+    coefficient/transitivity of an equivalent lattice/random graph.
 
     Parameters
     ----------
@@ -256,12 +256,17 @@ def smallworldness(G, niter=10, nrand=100):
     nrand: integer (optional, default=100)
         Number of random graphs generated to compute the average clustering
         coefficient (Cr) and average shortest path length (Lr).
-
+    approach : str
+        Specifies whether to use clustering coefficient `clustering` or
+        `transitivity` method of counting triangles. Default is `clustering`.
+    reference : str
+        Specifies whether to use a random `random` or lattice
+        `lattice` reference for clustering/transitivity. Default is `random`.
 
     Returns
     -------
     omega : float
-        The small-work coefficient (omega)
+        The small-work coefficient
 
     References
     ----------
@@ -279,13 +284,31 @@ def smallworldness(G, niter=10, nrand=100):
     randMetrics = {"C": [], "L": []}
     for i in range(nrand):
         Gr = random_reference(G, niter=niter, seed=i)
-        Gl = lattice_reference(G, niter=niter, seed=i)
-        randMetrics["C"].append(weighted_transitivity(Gl))
+        if reference == 'random':
+            Gl = random_reference(G, niter=niter, seed=i)
+        elif reference == 'lattice':
+            Gl = lattice_reference(G, niter=niter, seed=i)
+        else:
+            raise ValueError(f"{reference}' graph type not recognized!")
+
+        if approach == 'clustering':
+            randMetrics["C"].append(nx.average_clustering(Gl, weight='weight'))
+        elif approach == 'transitivity':
+            randMetrics["C"].append(weighted_transitivity(Gl))
+        else:
+            raise ValueError(f"{approach}' approach not recognized!")
+
         randMetrics["L"].append(nx.average_shortest_path_length(Gr, weight='weight'))
         del Gr, Gl
 
-    C = weighted_transitivity(G)
-    L = nx.average_shortest_path_length(G, weight='weight')
+    if approach == 'clustering':
+        C = weighted_transitivity(G)
+    elif approach == 'transitivity':
+        C = nx.average_clustering(G, weight='weight')
+    else:
+        raise ValueError(f"{approach}' approach not recognized!")
+
+    L = nx.average_shortest_path_length(G)
     Cl = np.mean(randMetrics["C"])
     Lr = np.mean(randMetrics["L"])
 
@@ -300,7 +323,6 @@ def create_communities(node_comm_aff_mat, node_num):
     ----------
     node_comm_aff_mat : array
         Community affiliation matrix produced from modularity estimation (e.g. Louvain).
-
     node_num : int
         Number of total connected nodes in the graph used to estimate node_comm_aff_mat.
 
@@ -328,9 +350,10 @@ def create_communities(node_comm_aff_mat, node_num):
 
 @timeout(720)
 def participation_coef(W, ci, degree='undirected'):
-    '''
+    """
     Participation coefficient is a measure of diversity of intermodular
     connections of individual nodes.
+
     Parameters
     ----------
     W : NxN np.ndarray
@@ -353,7 +376,8 @@ def participation_coef(W, ci, degree='undirected'):
     .. [2] Rubinov, M., & Sporns, O. (2010). Complex network measures of brain
       connectivity: Uses and interpretations. NeuroImage, 52, 1059-1069.
 
-    '''
+    """
+
     if degree == 'in':
         W = W.T
 
@@ -375,7 +399,7 @@ def participation_coef(W, ci, degree='undirected'):
 
 @timeout(720)
 def participation_coef_sign(W, ci):
-    '''
+    """
     Participation coefficient is a measure of diversity of intermodular
     connections of individual nodes.
 
@@ -400,7 +424,7 @@ def participation_coef_sign(W, ci):
     .. [2] Rubinov, M., & Sporns, O. (2010). Complex network measures of brain
       connectivity: Uses and interpretations. NeuroImage, 52, 1059-1069.
 
-    '''
+    """
     _, ci = np.unique(ci, return_inverse=True)
     ci += 1
 
@@ -430,15 +454,17 @@ def participation_coef_sign(W, ci):
 
 @timeout(720)
 def diversity_coef_sign(W, ci):
-    '''
+    """
     The Shannon-entropy based diversity coefficient measures the diversity
     of intermodular connections of individual nodes and ranges from 0 to 1.
+
     Parameters
     ----------
     W : NxN np.ndarray
         undirected connection matrix with positive and negative weights
     ci : Nx1 np.ndarray
         community affiliation vector
+
     Returns
     -------
     Hpos : Nx1 np.ndarray
@@ -451,7 +477,7 @@ def diversity_coef_sign(W, ci):
     .. [1] Rubinov, M., & Sporns, O. (2010). Complex network measures of brain
       connectivity: Uses and interpretations. NeuroImage, 52, 1059-1069.
 
-    '''
+    """
 
     def entropy(w_):
         # Strength
@@ -480,7 +506,7 @@ def diversity_coef_sign(W, ci):
 
 
 def link_communities(W, type_clustering='single'):
-    '''
+    """
     The optimal community structure is a subdivision of the network into
     nonoverlapping groups of nodes which maximizes the number of within-group
     edges and minimizes the number of between-group edges.
@@ -508,7 +534,8 @@ def link_communities(W, type_clustering='single'):
       brain. Philosophical Transactions of the Royal Society B: Biological Sciences.
       https://doi.org/10.1098/rstb.2013.0527
 
-    '''
+    """
+
     from pynets.core.thresholding import normalize
 
     n = len(W)
@@ -677,7 +704,7 @@ def link_communities(W, type_clustering='single'):
 
 @timeout(720)
 def weighted_transitivity(G):
-    """
+    r"""
     Compute weighted graph transitivity, the fraction of all possible weighted triangles
     present in G.
 
@@ -689,6 +716,7 @@ def weighted_transitivity(G):
     .. math::
 
         T = 3\frac{\#triangles}{\#triads}.
+
 
     Parameters
     ----------
@@ -708,9 +736,11 @@ def weighted_transitivity(G):
       USA 101, 3747 (2004)
 
     """
+
     from networkx.algorithms.cluster import _weighted_triangles_and_degree_iter
     triangles = sum(t for v, d, t in _weighted_triangles_and_degree_iter(G))
     contri = sum(d * (d - 1) for v, d, t in _weighted_triangles_and_degree_iter(G))
+
     return 0 if triangles == 0 else triangles / contri
 
 
@@ -787,6 +817,7 @@ def most_important(G):
       https://doi.org/10.1016/j.neuron.2013.07.035
 
     """
+
     print('Pruning fully disconnected and low importance nodes (3 SD < M)...')
     ranking = nx.betweenness_centrality(G, weight='weight').items()
     # print(ranking)
@@ -836,7 +867,9 @@ def raw_mets(G, i):
     -------
     net_met_val : float
         Value of the graph metric i that was calculated from G.
+
     """
+
     # import random
     from functools import partial
     if isinstance(i, partial):
@@ -1441,6 +1474,10 @@ def extractnetstats(ID, network, thr, conn_model, est_path, roi, prune, norm, bi
     .. [1] Fornito, A., Zalesky, A., & Bullmore, E. T. (2016).
       Fundamentals of Brain Network Analysis. In Fundamentals of Brain Network Analysis.
       https://doi.org/10.1016/C2012-0-06036-X
+    .. [2] Aric A. Hagberg, Daniel A. Schult and Pieter J. Swart, “Exploring network structure,
+      dynamics, and function using NetworkX”, in Proceedings of the 7th Python in Science Conference
+      (SciPy2008), Gäel Varoquaux, Travis Vaught, and Jarrod Millman (Eds), (Pasadena, CA USA),
+      pp. 11–15, Aug 2008
 
     """
     import time
