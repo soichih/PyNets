@@ -7,12 +7,16 @@
 # brainlife stages this git repo, writes `config.json` and execute this script.
 # this script reads the `config.json` and execute pynets container through singularity
 
+# you can run this script(main) without any parameter to test how this App will run outside brainlife
+# you will need to copy config.json.brainlife-sample to config.json before running `main` as `main`
+# will read all parameters from config.json
+
 set -x
 set -e
 
 echo "running pynet"
 mkdir -p output tmp
-singularity run -e docker://dpys/pynets:latest output \
+singularity run -e docker://dpys/pynets:latest pynets output \
     -p 1 -mod 'partcorr' 'corr' -min_thr 0.20 -max_thr 1.00 -step_thr 0.10 -sm 0 2 4 -hp 0 0.028 0.080
     -ct 'ward' -k 100 200 -cm '/outputs/triple_net_ICA_overlap_3_sig_bin.nii.gz' \
     -norm 6 \
@@ -20,5 +24,5 @@ singularity run -e docker://dpys/pynets:latest output \
     -func $(jq .bold config.json) \
     -conf $(jq .regressors config.json) \
     -m $(jq .mask config.json) \
-    -id 'PARTICIPANT_SESSION' -plug 'MultiProc' -work 'tmp' -pm '24,48'
+    -work 'tmp' -pm '8,30'
 
