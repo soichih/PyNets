@@ -24,6 +24,6 @@ singularity run -e docker://dpys/pynets:latest pynets output \
     -func $(jq .bold config.json) \
     -conf $(jq .regressors config.json) \
     -m $(jq .mask config.json) \
-    -id brainlife \
+    -id 'PARTICIPANT_SESSION' \
     -work 'tmp' -pm '8,30'
 
