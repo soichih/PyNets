@@ -22,13 +22,16 @@ singularity run -e docker://dpys/pynets:latest pynets output \
     -min_thr $(jq .min_thr config.json) \
     -max_thr $(jq .max_thr config.json) \
     -step_thr $(jq .step_thr config.json) \
-    -sm 0 2 4 -hp 0 0.028 0.080 \
-    -ct 'ward' -k 100 200 -cm '/outputs/triple_net_ICA_overlap_3_sig_bin.nii.gz' \
+    -sm 0 2 4 \
+    -hp 0 0.028 0.080 \
+    -ct ward \
+    -k 100 200 \
     -norm 6 \
-    -anat $(jq .t1 config.json) \
-    -func $(jq .bold config.json) \
-    -conf $(jq .regressors config.json) \
-    -m $(jq .mask config.json) \
+    -anat `pwd`/$(jq .t1 config.json) \
+    -func `pwd`/$(jq .bold config.json) \
+    -conf `pwd`/$(jq .regressors config.json) \
     -id brainlife \
     -work 'tmp' -pm '8,30'
 
+#-cm `pwd`/outputs/triple_net_ICA_overlap_3_sig_bin.nii.gz \
+#-m $(jq .mask config.json) \
