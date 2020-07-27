@@ -15,23 +15,44 @@ set -x
 set -e
 
 echo "running pynet"
+#singularity run -e docker://dpys/pynets:latest pynets output \
+#    -p $(jq .p config.json) \
+#    -mod 'partcorr' 'corr' \
+#    -min_thr $(jq .min_thr config.json) \
+#    -max_thr $(jq .max_thr config.json) \
+#    -step_thr $(jq .step_thr config.json) \
+#    -sm 0 2 4 \
+#    -hp 0 0.028 0.080 \
+#    -ct ward \
+#    -k 100 200 \
+#    -norm 6 \
+#    -anat $(jq .t1 config.json) \
+#    -func $(jq .bold config.json) \
+#    -conf $(jq .regressors config.json) \
+#    -id brainlife \
+#    -work 'tmp' -pm '8,30'
+
+#mkdir -p output
+#singularity run -e docker://dpys/pynets:latest pynets -id brainlife \
+#    -func `pwd`/$(jq -r .bold config.json) \
+#    -anat `pwd`/$(jq -r .t1 config.json) \
+#    -a coords_dosenbach_2010 \
+#    -mod partcorr \
+#    -spheres \
+#    -thr 0.20 \
+#    -work 'tmp' -pm '8,30' \
+#    `pwd`/output
+
 mkdir -p output tmp
-singularity run -e docker://dpys/pynets:latest pynets output \
-    -p $(jq .p config.json) \
-    -mod 'partcorr' 'corr' \
-    -min_thr $(jq .min_thr config.json) \
-    -max_thr $(jq .max_thr config.json) \
-    -step_thr $(jq .step_thr config.json) \
-    -sm 0 2 4 \
-    -hp 0 0.028 0.080 \
-    -ct ward \
-    -k 100 200 \
-    -norm 6 \
-    -anat `pwd`/$(jq .t1 config.json) \
-    -func `pwd`/$(jq .bold config.json) \
-    -conf `pwd`/$(jq .regressors config.json) \
+singularity run -e docker://dpys/pynets:latest pynets \
+    `pwd`/output \
     -id brainlife \
-    -work 'tmp' -pm '8,30'
+    -work `pwd`/tmp \
+    -func `pwd`/$(jq -r .bold config.json) \
+    -anat `pwd`/$(jq -r .t1 config.json) \
+    -a 'BrainnetomeAtlasFan2016' \
+    -mod partcorr -thr 0.20 \
+    -pm 8,30
 
 #-cm `pwd`/outputs/triple_net_ICA_overlap_3_sig_bin.nii.gz \
 #-m $(jq .mask config.json) \
