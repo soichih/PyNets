@@ -57,7 +57,7 @@ echo "running pynet"
 #    -pm 8,30
 
 singularity run -e docker://dpys/pynets:latest pynets \
-    /home/hayashis/pynets_output \
+    `pwd`/output \
     -id brainlife \
     -p $(jq .p config.json) \
     -func `pwd`/$(jq -r .bold config.json) \
