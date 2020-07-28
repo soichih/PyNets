@@ -73,8 +73,8 @@ singularity run -e docker://dpys/pynets:latest pynets \
     -dwi `pwd`/$(jq -r .dwi config.json) \
     -bval `pwd`/$(jq -r .bvals config.json) \
     -bvec `pwd`/$(jq -r .bvecs config.json) \
-    -mplx 2
-#    -pm 8,24
+    -mplx 2 \
+    -pm 8,24
 
 #-cm `pwd`/outputs/triple_net_ICA_overlap_3_sig_bin.nii.gz \
 #-m $(jq .mask config.json) \
