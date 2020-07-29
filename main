@@ -57,6 +57,7 @@ echo "running pynet"
 #    -pm 8,30
 
 singularity run -e docker://dpys/pynets:latest pynets \
+    -v \
     `pwd`/output \
     -id brainlife \
     -p $(jq .p config.json) \
@@ -74,7 +75,7 @@ singularity run -e docker://dpys/pynets:latest pynets \
     -bval `pwd`/$(jq -r .bvals config.json) \
     -bvec `pwd`/$(jq -r .bvecs config.json) \
     -mplx 2 \
-    -pm 8,24
+    -pm 6,20
 
 #-cm `pwd`/outputs/triple_net_ICA_overlap_3_sig_bin.nii.gz \
 #-m $(jq .mask config.json) \
