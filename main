@@ -1,5 +1,5 @@
 #!/bin/bash
-#PBS -l nodes=1:ppn=8,walltime=4:00:00
+#PBS -l nodes=1:ppn=8,walltime=2:00:00
 #PBS -l vmem=50gb
 #PBS -N pynet
 
@@ -16,45 +16,52 @@ set -e
 
 mkdir -p output tmp
 
-echo "running pynet"
-#singularity run -e docker://dpys/pynets:latest pynets output \
-#    -p $(jq .p config.json) \
-#    -mod 'partcorr' 'corr' \
-#    -min_thr $(jq .min_thr config.json) \
-#    -max_thr $(jq .max_thr config.json) \
-#    -step_thr $(jq .step_thr config.json) \
-#    -sm 0 2 4 \
-#    -hp 0 0.028 0.080 \
-#    -ct ward \
-#    -k 100 200 \
-#    -norm 6 \
-#    -anat $(jq .t1 config.json) \
-#    -func $(jq .bold config.json) \
-#    -conf $(jq .regressors config.json) \
-#    -id brainlife \
-#    -work 'tmp' -pm '8,30'
+# usage: pynets [-h] -id A subject id or other unique identifier
+#               [A subject id or other unique identifier ...]
+#               [-func Path to input functional file required for functional connectomes) [Path to input functional file (required for functional connectomes) ...]]
+#               [-dwi Path to diffusion-weighted imaging data file (required for dmri connectomes) [Path to diffusion-weighted imaging data file (required for dmri connectomes) ...]]
+#               [-bval Path to b-values file (required for dmri connectomes) [Path to b-values file (required for dmri connectomes) ...]]
+#               [-bvec Path to b-vectors file (required for dmri connectomes) [Path to b-vectors file (required for dmri connectomes) ...]]
+#               [-anat Path to a skull-stripped anatomical Nifti1Image [Path to a skull-stripped anatomical Nifti1Image ...]]
+#               [-m Path to a T1w brain mask image (if available) in native anatomical space [Path to a T1w brain mask image (if available) in native anatomical space ...]]
+#               [-conf Confound regressor file (.tsv/.csv format) [Confound regressor file (.tsv/.csv format) ...]]
+#               [-g Path to graph file input. [Path to graph file input. ...]]
+#               [-roi Path to binarized Region-of-Interest (ROI) Nifti1Image in template MNI space. [Path to binarized Region-of-Interest (ROI) Nifti1Image in template MNI space. ...]]
+#               [-ref Atlas reference file path]
+#               [-way Path to binarized Nifti1Image to constrain tractography [Path to binarized Nifti1Image to constrain tractography ...]]
+#               [-ua Path to custom parcellation file [Path to custom parcellation file ...]]
+#               [-mod Connectivity estimation/reconstruction method [Connectivity estimation/reconstruction method ...]]
+#               [-a Atlas [Atlas ...]]
+#               [-ns Spherical centroid node size [Spherical centroid node size ...]]
+#               [-thr Graph threshold]
+#               [-min_thr Multi-thresholding minimum threshold]
+#               [-max_thr Multi-thresholding maximum threshold]
+#               [-step_thr Multi-thresholding step size]
+#               [-sm Smoothing value (mm fwhm) [Smoothing value (mm fwhm) ...]]
+#               [-hp High-pass filter (Hz) [High-pass filter (Hz) ...]]
+#               [-es Node extraction strategy [Node extraction strategy ...]]
+#               [-k Number of k clusters [Number of k clusters ...]]
+#               [-ct Clustering type [Clustering type ...]]
+#               [-cm Cluster mask [Cluster mask ...]]
+#               [-ml Minimum fiber length for tracking [Minimum fiber length for tracking ...]]
+#               [-dg Direction getter [Direction getter ...]]
+#               [-norm Normalization strategy for resulting graph(s)] [-bin]
+#               [-dt] [-mst] [-p Pruning Strategy] [-df]
+#               [-mplx Perform various levels of multiplex graph analysis (only if both structural and diffusion connectometry is run simultaneously.]
+#               [-embed] [-spheres]
+#               [-n Resting-state network [Resting-state network ...]]
+#               [-vox {1mm,2mm}] [-plt] [-pm Cores,memory]
+#               [-plug Scheduler type] [-v] [-clean] [-work Working directory]
+#               [--version]
+#               output_dir
 
-#mkdir -p output
-#singularity run -e docker://dpys/pynets:latest pynets -id brainlife \
-#    -func `pwd`/$(jq -r .bold config.json) \
-#    -anat `pwd`/$(jq -r .t1 config.json) \
-#    -a coords_dosenbach_2010 \
-#    -mod partcorr \
-#    -spheres \
-#    -thr 0.20 \
-#    -work 'tmp' -pm '8,30' \
-#    `pwd`/output
 
-#works
-#singularity run -e docker://dpys/pynets:latest pynets \
-#    `pwd`/output \
-#    -id brainlife \
-#    -work `pwd`/tmp \
-#    -func `pwd`/$(jq -r .bold config.json) \
-#    -anat `pwd`/$(jq -r .t1 config.json) \
-#    -a 'BrainnetomeAtlasFan2016' \
-#    -mod partcorr -thr 0.20 \
-#    -pm 8,30
+#construct arguments for optional inputs
+optional=""
+conf=$(jq -r .regressors config.json)
+if [ $conf != "null" ]; then
+    optional="$optional -conf $conf"
+fi
 
 singularity run -e docker://dpys/pynets:latest pynets \
     `pwd`/output \
@@ -62,6 +69,10 @@ singularity run -e docker://dpys/pynets:latest pynets \
     -p $(jq .p config.json) \
     -func `pwd`/$(jq -r .bold config.json) \
     -anat `pwd`/$(jq -r .t1 config.json) \
+    -dwi `pwd`/$(jq -r .dwi config.json) \
+    -bval `pwd`/$(jq -r .bvals config.json) \
+    -bvec `pwd`/$(jq -r .bvecs config.json) \
+    $optional \
     -work `pwd`/tmp \
     -a 'BrainnetomeAtlasFan2016' 'destrieux2009_rois' \
     -mod partcorr csd \
@@ -70,14 +81,8 @@ singularity run -e docker://dpys/pynets:latest pynets \
     -step_thr $(jq -r .step_thr config.json) \
     -plt \
     -n Vis \
-    -dwi `pwd`/$(jq -r .dwi config.json) \
-    -bval `pwd`/$(jq -r .bvals config.json) \
-    -bvec `pwd`/$(jq -r .bvecs config.json) \
     -mplx 2 \
     -pm 6,20
 
-#-v \ #make this get stuck
-#-cm `pwd`/outputs/triple_net_ICA_overlap_3_sig_bin.nii.gz \
-#-m $(jq .mask config.json) \
 
 
